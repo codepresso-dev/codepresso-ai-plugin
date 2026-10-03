@@ -59,6 +59,7 @@ codepresso-plugin/
 ├── tests/lib/                     # Unit tests (node:test + node:assert)
 ├── mcp/
 │   └── notion-server.mjs          # MCP server exposing Notion API tools
+├── rules/korean-output.md         # Team Korean writing rules; injected by SessionStart every session
 ├── templates/workflows/           # GitHub Actions templates (ECS, CodePipeline)
 ├── .claude-plugin/plugin.json     # Plugin manifest
 ├── .mcp.json                      # MCP server declaration
@@ -84,7 +85,7 @@ Inbox scan      → /codepresso:scan-inbox OR morning session-start instruction
 ## Key Design Decisions
 
 ### 1. Silent Hook Pattern
-All hooks return `{ continue: true }`. SessionStart only emits short, on-demand `additionalContext` strings (PR detection, Notion task list, sprint info). PreToolUse can block on `gh pr create` to enforce Notion link discipline (see Decision 4).
+All hooks return `{ continue: true }`. SessionStart emits short `additionalContext` strings: the always-on team Korean writing rules (`rules/korean-output.md`, ~300 tokens) plus on-demand items (PR detection, Notion task list, sprint info). PreToolUse can block on `gh pr create` to enforce Notion link discipline (see Decision 4).
 
 ### 2. Two-Level Config Merge
 `defaults ← ~/.codepresso/config.json ← .codepresso.json`. Merge is **shallow per-section**: project values override global values within each top-level key but don't replace entire sections. See `scripts/lib/config.mjs:mergeSections()`.
@@ -158,7 +159,7 @@ Scaffolds the 16-item AI-native repo template into any target path. Non-destruct
 
 ### SessionStart (`scripts/session-start.mjs`)
 - **Timeout:** 5s
-- **Output:** `{ continue: true, additionalContext?: string }`
+- **Output:** `{ continue: true, additionalContext: string }` — always contains `rules/korean-output.md`; PR/Notion/sprint/inbox lines appended when applicable
 - **Side effects:** Writes `.codepresso/state/codepresso-session.json` (gitRoot, activeSubmodule, branch, PR, Notion tasks with unique IDs, sprint context). Scans submodules for active PRs when top-level repo has none. Spawns detached `wiki-cli.mjs fetch` when `wiki.enabled` and `wiki.autoFetch !== false`.
 - **Failure mode:** Silent
 

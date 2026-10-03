@@ -68,6 +68,7 @@ jobs:
             package.json \
             hooks/hooks.json \
             scripts/ \
+            rules/ \
             skills/ \
             mcp/notion-server.mjs \
             mcp/cloud-dev-server.mjs \

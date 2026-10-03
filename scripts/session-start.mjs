@@ -23,6 +23,7 @@ import { shouldRunInboxScan } from './lib/inbox-state.mjs';
 const STATE_DIR = getStateDir();
 const SESSION_FILE = join(STATE_DIR, 'codepresso-session.json');
 const GREETING_STATE_FILE = join(homedir(), '.codepresso', 'daily-greeting.json');
+const KOREAN_RULES_FILE = join(dirname(fileURLToPath(import.meta.url)), '..', 'rules', 'korean-output.md');
 
 // One-time migration: move legacy .omc/state/codepresso-* files to .codepresso/state/
 const legacyStateDir = join(process.cwd(), '.omc', 'state');
@@ -191,6 +192,13 @@ async function main() {
 
     // Build context parts
     const contextParts = [];
+
+    // Team-wide Korean writing rules (always on; see rules/korean-output.md)
+    try {
+      contextParts.push(readFileSync(KOREAN_RULES_FILE, 'utf-8').trim());
+    } catch (err) {
+      log.error(`Korean rules not loaded: ${err.message}`);
+    }
 
     if (pr) {
       contextParts.push(`[Codepresso] PR #${pr.number} detected on branch \`${branch}\`.`);
