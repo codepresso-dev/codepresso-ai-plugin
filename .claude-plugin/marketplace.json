@@ -10,7 +10,7 @@
     {
       "name": "codepresso",
       "description": "Team workflow plugin - Notion task sync, sprint workflow, git operation tracking on PRs, daily Google Chat bookends, and optional deployment integration for Claude Code., Figma \u2192 frontend scaffold pipeline, OWASP-2025 security audit",
-      "version": "0.2.26",
+      "version": "0.2.27",
       "author": {
         "name": "Code Presso"
       },
