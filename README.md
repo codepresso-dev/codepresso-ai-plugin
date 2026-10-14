@@ -17,7 +17,7 @@ Claude Code·Codex·OMP용 팀 워크플로우 플러그인 — Notion 작업 �
 - **평일 Google Chat 북엔드** (월–금): 첫 세션 시작 시 진행 중 작업 + 내 오픈 PR + 리뷰 요청 PR을 아침 인사로 전송, 18시에는 오늘의 커밋/머지된 PR/진행 중 작업을 Claude Haiku로 요약해 마감 메시지로 전송합니다.
 - **배포 연동** (선택): ECS, CodePipeline, GitHub Actions, 커스텀 명령어 중 원하는 방식으로 Claude Code에서 배포를 트리거할 수 있습니다.
 - **온콜 관리** (선택): DynamoDB + Google Calendar 기반 온콜 스케줄 조회/교체/생성, 런북 검색까지 Claude에서 한 번에.
-- **LLM Wiki + OMP 자동 작업 이력 (v0.2.27)** (선택): 개인 지식 베이스의 ingest/query/lint와 함께, OMP에서 완료·검증한 작업을 근거 기반 work-history로 자동 누적합니다. 각자 자기 vault(Obsidian + private git)를 사용합니다.
+- **LLM Wiki + OMP 자동 작업 이력 (v0.2.28)** (선택): 개인 지식 베이스의 ingest/query/lint와 함께, OMP에서 완료·검증한 작업을 근거 기반 work-history로 자동 누적합니다. 각자 자기 vault(Obsidian + private git)를 사용합니다.
 - **🆕 AIDLC 스캐폴더**: 임의의 저장소를 "AI 에이전트가 일하기 좋은 구조"(AGENTS.md·ADR·문서정책·CI·코드구조 인덱스 등 16항목)에 맞춰 진단하고, **없는 것만** 비파괴로 깔아줍니다. 진단 → 인터뷰 → 미리보기 → 생성 → 재진단. 외부 연동 없이 동작하며, 모노레포면 하위 프로젝트별로 맞춰 생성합니다.
 - **OMC 호환**: oh-my-claudecode와 충돌 없이 함께 동작합니다.
 - **모노레포 / 서브모듈 지원**: 모노레포 루트에서 작업할 때 서브모듈의 활성 PR을 자동 감지합니다.
@@ -61,7 +61,7 @@ Claude Code·Codex·OMP용 팀 워크플로우 플러그인 — Notion 작업 �
 
 ---
 
-## LLM Wiki + OMP 자동 작업 이력 (v0.2.27)
+## LLM Wiki + OMP 자동 작업 이력 (v0.2.28)
 
 Karpathy의 [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 패턴 기반 개인 위키. 각 사용자가 자기 vault를 가지며 내용은 공유하지 않고 도구만 공유합니다.

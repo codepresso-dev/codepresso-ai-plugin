@@ -4,7 +4,7 @@
 
 Codepresso is a **team workflow plugin** for Claude Code, Codex, and OMP that provides Notion task sync, sprint workflow automation, git operation tracking on PRs, daily Google Chat bookends, optional deployment integration, and personal LLM Wiki workflows. Claude hooks and the OMP runtime extension are separate entry points over shared config.
 
-**Version:** 0.2.27
+**Version:** 0.2.28
 **Runtime:** Node.js >= 20; OMP extension uses the host Bun runtime
 **Dependencies:** `@modelcontextprotocol/sdk`
 

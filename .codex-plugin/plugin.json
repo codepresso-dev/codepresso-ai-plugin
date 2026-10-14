@@ -1,6 +1,6 @@
 {
   "name": "codepresso",
-  "version": "0.2.27",
+  "version": "0.2.28",
   "description": "Team workflow - Notion sync, sprint workflow, PR activity tracking, Figma scaffolding, and personal LLM Wiki",
   "author": {
     "name": "Code Presso"
