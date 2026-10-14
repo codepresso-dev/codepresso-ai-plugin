@@ -2,10 +2,10 @@
 
 ## Overview
 
-Codepresso is a **team workflow plugin** for Claude Code that provides Notion task sync, sprint workflow automation, git operation tracking on PRs, daily Google Chat bookends, and optional deployment integration. It runs alongside oh-my-claudecode (OMC) with zero conflicts.
+Codepresso is a **team workflow plugin** for Claude Code, Codex, and OMP that provides Notion task sync, sprint workflow automation, git operation tracking on PRs, daily Google Chat bookends, optional deployment integration, and personal LLM Wiki workflows. Claude hooks and the OMP runtime extension are separate entry points over shared config.
 
-**Version:** 0.1.0
-**Runtime:** Node.js >= 20, ESM modules
+**Version:** 0.2.27
+**Runtime:** Node.js >= 20; OMP extension uses the host Bun runtime
 **Dependencies:** `@modelcontextprotocol/sdk`
 
 ---
@@ -61,9 +61,12 @@ codepresso-plugin/
 │   └── notion-server.mjs          # MCP server exposing Notion API tools
 ├── rules/korean-output.md         # Team Korean writing rules; injected by SessionStart every session
 ├── templates/workflows/           # GitHub Actions templates (ECS, CodePipeline)
-├── .claude-plugin/plugin.json     # Plugin manifest
-├── .mcp.json                      # MCP server declaration
-└── package.json
+├── omp/
+│   └── llm-wiki-capture.ts         # OMP session_stop: evidence-filtered work history + git sync
+├── .claude-plugin/plugin.json      # Claude plugin manifest
+├── .codex-plugin/plugin.json       # Codex plugin manifest
+├── .mcp.json                       # MCP server declaration
+└── package.json                    # omp.extensions declares the OMP runtime entry
 ```
 
 ### Data Flow
@@ -152,6 +155,15 @@ Scaffolds the 16-item AI-native repo template into any target path. Non-destruct
 - Templates: `templates/aidlc/**` (canonical static files).
 - State: `<target>/.codepresso/state/aidlc-scorecard.json` (last scan).
 - Content model: structural/policy files = canonical templates; AGENTS.md/CLAUDE.md/codesight = repo-aware authored. AGENTS.md is the single authoritative entry point; CLAUDE.md + other tool files are thin pointers.
+
+### OMP LLM Wiki Auto-Capture
+
+`package.json#omp.extensions` loads `omp/llm-wiki-capture.ts` only in OMP. The extension reads the
+existing two-level `wiki` config, runs an ephemeral classifier at `session_stop`, and records only
+completed or validated work. `wiki.autoCapture` is opt-in. `wiki.workHistoryPath` selects the ledger;
+missing ledgers are created inside the vault. With `wiki.autoSync`, the extension fetches and
+fast-forwards before writing, creates a path-limited commit, and pushes. Divergence fails closed.
+The extension registers no status-line item and does not alter Claude hook behavior.
 
 ---
 
@@ -266,9 +278,12 @@ All state lives in `.codepresso/state/` with `codepresso-` prefix:
     "reminder": { "showOverdue": true, "showDueToday": true, "maxPerSection": 5 }
   },
   "wiki": {
-    "enabled": false,                              // Set true after `node scripts/wiki-cli.mjs init`
-    "vaultPath": "~/Documents/Obsidian/llm-wiki",  // ~ expanded at use
-    "autoFetch": true                              // Spawn detached git fetch on session start (set false to disable)
+    "enabled": false,
+    "vaultPath": "~/Documents/Obsidian/llm-wiki",
+    "autoFetch": true,                              // Claude SessionStart fetch/status notice
+    "autoCapture": false,                           // OMP session_stop work-history capture
+    "autoSync": true,                               // OMP ff-only-before + push-after
+    "workHistoryPath": "pages/process/omp-work-history.md"
   },
   "aws": {
     "enabled": false,                              // Flipped true by `aws-cli setup`

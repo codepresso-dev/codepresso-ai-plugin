@@ -213,3 +213,35 @@ describe('inbox config defaults', () => {
     });
   });
 });
+
+describe('wiki OMP auto-capture config', () => {
+  it('defaults auto-capture off and remote sync on', () => {
+    const cfg = loadConfig(process.cwd(), { globalConfigPath: '/no/such/codepresso-config.json' });
+    assert.equal(cfg.wiki.autoCapture, false);
+    assert.equal(cfg.wiki.autoSync, true);
+    assert.equal(cfg.wiki.workHistoryPath, 'pages/process/omp-work-history.md');
+  });
+
+  it('merges a project work-history override without dropping sync defaults', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'cp-wiki-cfg-'));
+    writeFileSync(
+      join(cwd, '.codepresso.json'),
+      JSON.stringify({ wiki: { enabled: true, autoCapture: true, workHistoryPath: 'people/self/work-history.md' } }),
+    );
+    const cfg = loadConfig(cwd, { globalConfigPath: join(tmpdir(), 'nonexistent-global.json') });
+    assert.equal(cfg.wiki.enabled, true);
+    assert.equal(cfg.wiki.autoCapture, true);
+    assert.equal(cfg.wiki.autoSync, true);
+    assert.equal(cfg.wiki.workHistoryPath, 'people/self/work-history.md');
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('validates auto-capture, sync, and work-history path types', () => {
+    const warnings = validateConfig({
+      wiki: { autoCapture: 'yes', autoSync: 1, workHistoryPath: false },
+    });
+    assert.ok(warnings.some((warning) => warning.includes('wiki.autoCapture') && warning.includes('boolean')));
+    assert.ok(warnings.some((warning) => warning.includes('wiki.autoSync') && warning.includes('boolean')));
+    assert.ok(warnings.some((warning) => warning.includes('wiki.workHistoryPath') && warning.includes('string')));
+  });
+});

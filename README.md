@@ -1,6 +1,6 @@
 # Codepresso
 
-Claude Code용 팀 워크플로우 플러그인 — Notion 작업 동기화, 스프린트 워크플로우 자동화, PR 연동 git 활동 추적, **Gmail + Google Chat 받은편지함 작업 트래커**, 평일 Google Chat 북엔드, **Figma → 프론트엔드 scaffold 자동화**, **개인 LLM Wiki**, 선택적 배포 연동, 온콜 관리까지.
+Claude Code·Codex·OMP용 팀 워크플로우 플러그인 — Notion 작업 동기화, 스프린트 워크플로우 자동화, PR 연동 git 활동 추적, **Gmail + Google Chat 받은편지함 작업 트래커**, 평일 Google Chat 북엔드, **Figma → 프론트엔드 scaffold 자동화**, **개인 LLM Wiki**, 선택적 배포 연동, 온콜 관리까지.
 
 ---
 
@@ -17,7 +17,7 @@ Claude Code용 팀 워크플로우 플러그인 — Notion 작업 동기화, 스
 - **평일 Google Chat 북엔드** (월–금): 첫 세션 시작 시 진행 중 작업 + 내 오픈 PR + 리뷰 요청 PR을 아침 인사로 전송, 18시에는 오늘의 커밋/머지된 PR/진행 중 작업을 Claude Haiku로 요약해 마감 메시지로 전송합니다.
 - **배포 연동** (선택): ECS, CodePipeline, GitHub Actions, 커스텀 명령어 중 원하는 방식으로 Claude Code에서 배포를 트리거할 수 있습니다.
 - **온콜 관리** (선택): DynamoDB + Google Calendar 기반 온콜 스케줄 조회/교체/생성, 런북 검색까지 Claude에서 한 번에.
-- **🆕 LLM Wiki (v0.2.13)** (선택): 개인 지식 베이스를 LLM이 유지·관리합니다. 소스를 ingest하면 서로 연결된 마크다운 페이지로 쌓이고(compounding), query/lint로 활용·점검합니다. 각자 자기 vault(Obsidian + git)를 가지므로 내용은 공유되지 않습니다.
+- **LLM Wiki + OMP 자동 작업 이력 (v0.2.27)** (선택): 개인 지식 베이스의 ingest/query/lint와 함께, OMP에서 완료·검증한 작업을 근거 기반 work-history로 자동 누적합니다. 각자 자기 vault(Obsidian + private git)를 사용합니다.
 - **🆕 AIDLC 스캐폴더**: 임의의 저장소를 "AI 에이전트가 일하기 좋은 구조"(AGENTS.md·ADR·문서정책·CI·코드구조 인덱스 등 16항목)에 맞춰 진단하고, **없는 것만** 비파괴로 깔아줍니다. 진단 → 인터뷰 → 미리보기 → 생성 → 재진단. 외부 연동 없이 동작하며, 모노레포면 하위 프로젝트별로 맞춰 생성합니다.
 - **OMC 호환**: oh-my-claudecode와 충돌 없이 함께 동작합니다.
 - **모노레포 / 서브모듈 지원**: 모노레포 루트에서 작업할 때 서브모듈의 활성 PR을 자동 감지합니다.
@@ -61,20 +61,33 @@ Claude Code용 팀 워크플로우 플러그인 — Notion 작업 동기화, 스
 
 ---
 
-## 🆕 LLM Wiki (개인 지식 베이스, v0.2.13)
+## LLM Wiki + OMP 자동 작업 이력 (v0.2.27)
 
-LLM이 유지·관리하는 개인 위키. Karpathy의 [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) 패턴 기반이며, **각자 자기 vault를 가집니다** (내용은 공유되지 않고, 도구만 공유).
+Karpathy의 [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+패턴 기반 개인 위키. 각 사용자가 자기 vault를 가지며 내용은 공유하지 않고 도구만 공유합니다.
 
+```text
+/codepresso:llm-wiki init
+/codepresso:llm-wiki ingest <url|메모>
+/codepresso:llm-wiki query <질문>
+/codepresso:llm-wiki lint
+/codepresso:llm-wiki auto-capture on [work-history-path]
 ```
-/codepresso:llm-wiki init                  # 내 vault 생성 (Obsidian + git, 기본 ~/Documents/Obsidian/llm-wiki)
-/codepresso:llm-wiki ingest <url|메모>      # 소스를 캡처해 연결된 페이지로 통합
-/codepresso:llm-wiki query <질문>           # 위키에서 인용 포함 답변
-/codepresso:llm-wiki lint                  # 모순/오래된 내용/고아 페이지 점검
+
+OMP에서는 플러그인을 user scope로 한 번 연결합니다.
+
+```bash
+omp plugin link /path/to/codepresso-ai-plugin --scope user
 ```
 
-vault 위치는 `~/.codepresso/config.json`의 `wiki.vaultPath`로 바뀝니다. 여러 컴퓨터에서 쓰려면 vault에 private git remote를 직접 연결하세요. 자연어로 "이거 내 위키에 넣어줘"라고 해도 자동으로 동작합니다.
+`auto-capture on`은 OMP main session 종료 시 최신 작업을 평가합니다. 완료된 구현·수정·배포,
+검증된 실험·조사·감사·리뷰, 전달된 설계만 source + work-history + `log.md`에 기록합니다.
+잡담·계획만 있는 turn·근거 없는 결과·자격증명·동료 평가는 제외합니다. 상태 표시줄 항목은 만들지
+않습니다.
 
-원격(upstream)이 설정되어 있으면 세션 시작 시 백그라운드에서 `git fetch`를 실행하고, vault가 원격보다 뒤처져 있으면 첫 번째 도구 사용 시 알림을 표시합니다. **자동 병합은 절대 하지 않으며**, pull 여부는 항상 사용자가 결정합니다. 이 기능을 끄려면 `wiki.autoFetch: false`로 설정하세요.
+`wiki.autoSync: true`이면 기록 전에 upstream을 fetch하고 필요한 경우에만 fast-forward한 뒤,
+관련 파일만 commit·push합니다. diverged branch는 자동 merge하지 않고 중단합니다. Claude Code
+hook의 기존 `wiki.autoFetch` 알림 동작은 그대로 유지됩니다.
 
 ---
 

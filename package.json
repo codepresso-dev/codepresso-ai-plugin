@@ -9,6 +9,11 @@
   "scripts": {
     "test": "node --test tests/lib/*.test.mjs"
   },
+  "omp": {
+    "extensions": [
+      "./omp/llm-wiki-capture.ts"
+    ]
+  },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.994.0",
     "@aws-sdk/client-ec2": "^3.994.0",

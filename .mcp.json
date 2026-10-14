@@ -6,11 +6,11 @@
     },
     "codepresso-notion": {
       "command": "node",
-      "args": ["./mcp/notion-server.mjs"]
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/notion-server.mjs"]
     },
     "cloud-dev": {
       "command": "node",
-      "args": ["./mcp/cloud-dev-server.mjs"]
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/cloud-dev-server.mjs"]
     }
   }
 }

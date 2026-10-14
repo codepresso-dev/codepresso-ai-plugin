@@ -13,6 +13,29 @@ Before installing Codepresso, ensure you have:
 
 ## Installation Methods
 
+### OMP Plugin
+
+OMP uses the `omp.extensions` entry in `package.json` and loads the Wiki auto-capture extension
+without changing Claude Code hooks:
+
+```bash
+git clone https://github.com/code-presso/codepresso-ai-plugin.git ~/plugins/codepresso
+npm --prefix ~/plugins/codepresso install
+omp plugin link ~/plugins/codepresso --scope user
+```
+
+Restart OMP after linking. Enable personal work capture after the Wiki vault exists:
+
+```bash
+node ~/plugins/codepresso/scripts/wiki-cli.mjs auto-capture on
+# Optional custom ledger:
+node ~/plugins/codepresso/scripts/wiki-cli.mjs auto-capture on people/self/work-history.md
+```
+
+The extension is silent in the status line. With `wiki.autoSync: true`, it fast-forwards before
+capture and pushes the path-limited capture commit. Diverged branches fail closed.
+
+
 ### Method 0: Codex Plugin
 
 Codex reads `.codex-plugin/plugin.json`, `skills/`, `commands/`, and `.mcp.json` from this repo.

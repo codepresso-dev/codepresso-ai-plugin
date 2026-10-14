@@ -89,7 +89,10 @@ const DEFAULT_CONFIG = {
     enabled: false,                              // Set true after `node scripts/wiki-cli.mjs init`
     vaultPath: '~/Documents/Obsidian/llm-wiki',  // ~ expanded at use; each user keeps their OWN vault
     remote: null,                                // Optional git remote (e.g. private GitHub repo) for multi-machine sync
-    autoFetch: true,                             // Spawn detached git fetch on session start (fetch-only, never auto-merges)
+    autoFetch: true,                             // Claude hook: detached fetch on session start
+    autoCapture: false,                          // OMP extension: capture completed, evidenced work at session stop
+    autoSync: true,                              // OMP extension: fast-forward before capture, push after commit
+    workHistoryPath: 'pages/process/omp-work-history.md',
   },
   aws: {
     enabled: false,                                 // flipped true by `aws-cli setup`
@@ -335,8 +338,13 @@ export function validateConfig(config) {
     if (typeof config.wiki.vaultPath !== 'undefined' && typeof config.wiki.vaultPath !== 'string') {
       warnings.push(`wiki.vaultPath should be a string, got ${typeof config.wiki.vaultPath}`);
     }
-    if (typeof config.wiki.autoFetch !== 'undefined' && typeof config.wiki.autoFetch !== 'boolean') {
-      warnings.push(`wiki.autoFetch should be boolean, got ${typeof config.wiki.autoFetch}`);
+    for (const key of ['autoFetch', 'autoCapture', 'autoSync']) {
+      if (typeof config.wiki[key] !== 'undefined' && typeof config.wiki[key] !== 'boolean') {
+        warnings.push(`wiki.${key} should be boolean, got ${typeof config.wiki[key]}`);
+      }
+    }
+    if (typeof config.wiki.workHistoryPath !== 'undefined' && typeof config.wiki.workHistoryPath !== 'string') {
+      warnings.push(`wiki.workHistoryPath should be a string, got ${typeof config.wiki.workHistoryPath}`);
     }
   }
 

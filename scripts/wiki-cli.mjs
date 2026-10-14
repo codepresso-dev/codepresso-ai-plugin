@@ -101,6 +101,7 @@ function out(obj) {
 
 const cmd = process.argv[2];
 const arg = process.argv[3];
+const arg2 = process.argv[4];
 
 switch (cmd) {
   case 'path': {
@@ -113,6 +114,9 @@ switch (cmd) {
       exists: existsSync(resolved),
       hasSchema: existsSync(join(resolved, 'CLAUDE.md')),
       remote: config.wiki?.remote ?? null,
+      autoCapture: config.wiki?.autoCapture ?? false,
+      autoSync: config.wiki?.autoSync ?? true,
+      workHistoryPath: config.wiki?.workHistoryPath ?? 'pages/process/omp-work-history.md',
     });
     break;
   }
@@ -134,6 +138,33 @@ switch (cmd) {
     const git = gitInit(resolved);
     setWikiConfig(resolved);
     out({ initialized: true, vaultPath: resolved, git, configUpdated: true });
+    break;
+  }
+  case 'auto-capture': {
+    if (arg !== 'on' && arg !== 'off') {
+      process.stderr.write('usage: node scripts/wiki-cli.mjs auto-capture <on|off> [work-history-path]\n');
+      process.exit(2);
+    }
+    const config = loadConfigOrExit();
+    const { resolved: vaultPath } = resolveVaultPath(config);
+    const cfg = readGlobalConfig();
+    cfg.wiki = {
+      ...(cfg.wiki || {}),
+      enabled: true,
+      vaultPath,
+      autoCapture: arg === 'on',
+      autoSync: cfg.wiki?.autoSync ?? true,
+      workHistoryPath: arg2 || cfg.wiki?.workHistoryPath || 'pages/process/omp-work-history.md',
+    };
+    mkdirSync(dirname(GLOBAL_CONFIG_PATH), { recursive: true });
+    writeFileSync(GLOBAL_CONFIG_PATH, JSON.stringify(cfg, null, 2) + '\n', 'utf-8');
+    out({
+      enabled: true,
+      autoCapture: cfg.wiki.autoCapture,
+      autoSync: cfg.wiki.autoSync,
+      vaultPath,
+      workHistoryPath: cfg.wiki.workHistoryPath,
+    });
     break;
   }
   case 'fetch': {
@@ -213,6 +244,7 @@ switch (cmd) {
       'usage:\n' +
       '  node scripts/wiki-cli.mjs path [override-path]   # resolve configured vault path\n' +
       '  node scripts/wiki-cli.mjs init [path]            # scaffold vault + git + write config\n' +
+      '  node scripts/wiki-cli.mjs auto-capture <on|off> [work-history-path]\n' +
       '  node scripts/wiki-cli.mjs fetch                  # git fetch + write ~/.codepresso/wiki-status.json\n'
     );
     process.exit(2);
