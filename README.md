@@ -574,6 +574,7 @@ CODEPRESSO_DRY_RUN=1 node scripts/daily-chat-summary.mjs
 | `codepresso:oncall-sync-calendar` | "온콜 캘린더 동기화" | Google Calendar와 DynamoDB 재동기화 |
 | `codepresso:oncall-seed-metadata` | "엔지니어 메타데이터 시드" | 배포 게이트 검증용 매핑 시드 |
 | `codepresso:oncall-runbook` | "온콜 런북", "sev1 어떻게 처리?" | `docs/oncall-runbook.md` 섹션 조회 |
+| 🆕 `codepresso:candidate-session` | "응시자 a@b.com 시험이 10분 만에 끝났대", "/codepresso:candidate-session <email>" | Live DB(RDS Data API, 읽기 전용) + 서버 로그로 응시 내역·종료 원인(평가 기간 마감/제한시간/조기 제출) 판정 → Google Chat 공유용 리포트 |
 | 🆕 `codepresso:scaffolding-from-figma` | "이 figma 노드로 Vue scaffold 만들어줘", Figma URL + PAT 제공 | Figma PAT → REST API → 토큰 매핑 spec.md → designer-high agent → ~90% scaffold (퍼블리셔 1-2시간 마무리) |
 | 🆕 `codepresso:llm-wiki` | "/codepresso:llm-wiki ...", "이거 내 위키에 넣어줘", "내 위키에 X 있어?", "위키 lint" | 개인 LLM Wiki(Obsidian + git) init/ingest/query/lint — 대화를 넘어 쌓이는 지식 베이스 |
 | 🆕 `codepresso:security-audit` | "보안 점검해줘", "security audit", "취약점 진단", "/codepresso:security-audit" | OWASP Top 10:2025 + 최신 사고 기반 스캔(코드·인프라) → 개발자 머신 자격증명 점검(선택) → 인터뷰 → 점수 리포트. 기술 스택 무관 |

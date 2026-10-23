@@ -31,10 +31,12 @@ codepresso-plugin/
 │   │   ├── aidlc-scan.mjs         # 16-item scorecard detectors + secret scan + score (pure, tested)
 │   │   ├── aidlc-template.mjs     # Template substitution + non-destructive file write (pure, tested)
 │   │   ├── aws-session.mjs        # AWS MFA session: paths/expiry/cache/parse/redact/detection (pure, tested)
-│   │   └── aws-ini.mjs            # Safe ~/.aws INI section rename/upsert (pure, tested)
+│   │   ├── aws-ini.mjs            # Safe ~/.aws INI section rename/upsert (pure, tested)
+│   │   └── candidate-session.mjs  # KST parsing, session end-cause verdicts, log classification, Google Chat report (pure, tested)
 │   ├── aidlc-cli.mjs              # CLI: detect/scan/score/plan/apply-static (JSON output)
 │   ├── aws-cli.mjs                # CLI: status/detect-mfa/refresh/setup (JSON output)
 │   ├── aws-cred-process.mjs       # credential_process entry: emits cached MFA session or exits 1
+│   ├── candidate-session-cli.mjs  # CLI: investigate a live candidate's session (RDS Data API + CloudWatch, JSON or chat output)
 │   ├── session-start.mjs          # SessionStart hook: detect branch/PR, fetch Notion tasks, daily greeting
 │   ├── daily-chat-greeting.mjs    # Detached: weekday morning Google Chat greeting
 │   ├── daily-chat-summary.mjs     # Evening summary script (manual or scheduled)
@@ -55,7 +57,8 @@ codepresso-plugin/
 │   ├── scan-inbox/SKILL.md        # Inbox triage routine (Gmail + Chat → Notion tasks with due dates)
 │   ├── aidlc-init/SKILL.md        # AIDLC scaffolder full pipeline (detect → scan → interview → preview → apply → re-score)
 │   ├── aidlc-doctor/SKILL.md      # AIDLC diagnose-only (score + gap report, no writes)
-│   └── aws-login/SKILL.md         # Refresh short-lived AWS MFA session (credential_process bridge)
+│   ├── aws-login/SKILL.md         # Refresh short-lived AWS MFA session (credential_process bridge)
+│   └── candidate-session/SKILL.md # Why did a live candidate's assessment end when it did? (read-only DB + logs → chat report)
 ├── tests/lib/                     # Unit tests (node:test + node:assert)
 ├── mcp/
 │   └── notion-server.mjs          # MCP server exposing Notion API tools
@@ -144,6 +147,16 @@ When MFA enforcement is active on AWS IAM, every AWS channel (cloud-dev MCP, raw
 **Session lifecycle:** 4-hour TTL (`sessionTtlSeconds: 14400`), 60-second expiry skew in `isSessionValid`. Cache written atomically with `chmod 600`. Secret values never appear on stdout; the `redact()` helper masks them in logs.
 
 **`aws.enabled` gate:** all MFA detection is skipped when `aws.enabled` is false (default), so teams not using MFA are unaffected.
+
+### 14. Candidate Session Investigation (`candidate-session`)
+
+Handles the recurring live inbound "응시자 시험이 N분 만에 끝났다". `scripts/candidate-session-cli.mjs investigate --email <e> [--assessment <id>] [--format chat]`:
+
+- **DB:** RDS Data API (`aws rds-data execute-statement`) on the Seoul live cluster `codepresso-global` (Data API enabled in `monorepo/infra/opt/main.tf`), as `readonly_viewer` via the `opt/rds-proxy` secret. One fixed, parameterized SELECT over `main.user` ↔ `user_map_custom_assessment` ↔ `custom_assessment`. No bastion tunnel or Postgres client.
+- **Logs:** `filter-log-events` on `/aws/ecs/main-backend-opt` from `started_at − 15m` to `ended_at + 5m`. Matches the user UUID (MDC) plus numeric-id lines, because Quartz worker lines carry an empty MDC uid.
+- **Verdict** (`analyzeSession`, 60s tolerance): effective deadline = min(`started_at` + `duration` + extensions, window close). `WINDOW_CLOSE` / `TIME_LIMIT` / `EARLY_SUBMIT` / `ENDED_AFTER_DEADLINE` / `NOT_COMPLETED`. The completion line's thread tells who submitted: `http-nio-*` = browser, `schedulerFactoryBean_Worker-*` = Quartz job.
+- **Timezone:** backend/main stores KST `timestamp without time zone`; `parseKst` converts to epoch ms.
+- **Limits:** `readonly_viewer` has no SELECT on history, user-action, or extension-log tables. Live opt only.
 
 ### AIDLC Scaffolder (`aidlc-init` / `aidlc-doctor`)
 
@@ -373,7 +386,7 @@ echo '{"toolInput":{"command":"git commit -m \"test\""},"toolOutput":"[main abc1
 |-----------|----------|----------|
 | `gh` CLI | Yes | PR detection, comment posting |
 | Notion API key | No | Notion task sync features |
-| AWS CLI | No | Deploy features (ECS, CodePipeline) |
+| AWS CLI | No | Deploy features (ECS, CodePipeline), MFA session, `candidate-session` (RDS Data API + CloudWatch Logs) |
 | `gws` CLI | No | Daily Google Chat bookends |
 | `claude` CLI | No | Morning motivational phrase and evening Haiku summary |
 
