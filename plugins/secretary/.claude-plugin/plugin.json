@@ -1,0 +1,6 @@
+{
+  "name": "secretary",
+  "version": "0.1.0",
+  "description": "근무 시간 동안 1시간마다 말을 거는 비서 캐릭터 패널 (Notion 태스크·PR 머지·리마인드)",
+  "types": "./types/index.d.ts"
+}

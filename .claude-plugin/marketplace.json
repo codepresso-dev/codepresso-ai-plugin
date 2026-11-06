@@ -24,6 +24,21 @@
         "figma-scaffold",
         "security-audit"
       ]
+    },
+    {
+      "name": "secretary",
+      "description": "Claude Code 패널에 비서 캐릭터를 띄우고 근무 시간 동안 1시간마다 Notion 태스크·PR 머지·리마인드를 챙긴다",
+      "version": "0.1.0",
+      "author": {
+        "name": "Code Presso"
+      },
+      "source": "./plugins/secretary",
+      "category": "productivity",
+      "tags": [
+        "team-workflow",
+        "notion-sync",
+        "assistant"
+      ]
     }
   ]
 }

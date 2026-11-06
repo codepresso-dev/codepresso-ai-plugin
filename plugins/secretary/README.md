@@ -1,0 +1,38 @@
+# secretary
+
+Claude Code 터미널 옆 패널에 비서 캐릭터를 띄우는 mod다. 근무 시간 동안 1시간마다 먼저 말을 걸어 업무를 챙긴다.
+
+## 하는 일
+
+- 평일 KST 09:30 ~ 17:30, 매시 30분에 체크인한다. 주말에는 체크인하지 않는다.
+- 그날 첫 체크인은 아침 브리핑이다. 일정, 온콜, 리뷰 대기 PR 을 먼저 보여준다.
+- 매 체크인마다 지난 체크인 이후 develop/main 에 머지된 내 PR 을 찾는다. PR 의 TSK 번호로 Notion 태스크를 완료 처리한다.
+- 남은 Notion 태스크를 리마인드한다. Gmail·Google Chat 의 긴급 요청은 태스크로 추가할지 먼저 묻는다.
+- 17:30 체크인은 하루 마감 정리다.
+- 패널에는 캐릭터 표정, 한마디, 할 일 체크리스트, 진행률이 보인다.
+
+## 설치
+
+```
+/plugin install secretary@codepresso
+```
+
+설치한 뒤 Claude Code 를 다시 시작한다. 터미널 폭이 좁으면 패널이 자동으로 열리지 않는다. 이때는 `/secretary` 로 연다.
+
+## 사용
+
+- `/secretary` — 패널을 열고 바로 체크인한다.
+- "이거 쪼개 줘" — 태스크를 하위 할 일로 나눠 패널에 올린다.
+
+## 제약
+
+- Claude Code 세션이 열려 있을 때만 동작한다. 놓친 체크인은 세션을 다시 열 때 한 번만 실행한다.
+- Notion·Calendar·Gmail 은 각자 연결한 MCP 와 `gh` 로그인을 쓴다. 연결되지 않은 도구는 건너뛴다.
+- 할 일과 체크인 기록은 각자 PC 의 Claude Code 설정 폴더에만 저장한다. 레포에는 개인 정보가 들어가지 않는다.
+
+## 테스트
+
+```
+claude plugin validate plugins/secretary
+claude plugin test plugins/secretary
+```
