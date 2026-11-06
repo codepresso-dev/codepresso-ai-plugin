@@ -18,7 +18,7 @@ const ENV = {
   label: 'Live',
   region: 'ap-northeast-2',
   clusterArn: 'arn:aws:rds:ap-northeast-2:204573508773:cluster:codepresso-global',
-  secretArn: 'arn:aws:secretsmanager:ap-northeast-2:204573508773:secret:opt/rds-proxy-C5vVYH',
+  secretArn: 'arn:aws:secretsmanager:ap-northeast-2:204573508773:secret:opt/rds-readonly-viewer-AyT3EU',
   database: 'global_seoul',
   logGroup: '/aws/ecs/main-backend-opt',
 };

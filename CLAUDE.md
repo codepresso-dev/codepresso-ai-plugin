@@ -32,6 +32,7 @@ codepresso-plugin/
 │   │   ├── aidlc-template.mjs     # Template substitution + non-destructive file write (pure, tested)
 │   │   ├── aws-session.mjs        # AWS MFA session: paths/expiry/cache/parse/redact/detection (pure, tested)
 │   │   ├── aws-ini.mjs            # Safe ~/.aws INI section rename/upsert (pure, tested)
+│   │   ├── aws-cred-install.mjs   # Copies credential_process entry to ~/.codepresso/bin + repoints stale ~/.aws/config (tested)
 │   │   └── candidate-session.mjs  # KST parsing, session end-cause verdicts, log classification, Google Chat report (pure, tested)
 │   ├── aidlc-cli.mjs              # CLI: detect/scan/score/plan/apply-static (JSON output)
 │   ├── aws-cli.mjs                # CLI: status/detect-mfa/refresh/setup (JSON output)
@@ -138,7 +139,9 @@ Tasks arriving via Gmail or Google Chat are surfaced by a markdown skill (`skill
 
 When MFA enforcement is active on AWS IAM, every AWS channel (cloud-dev MCP, raw `aws` CLI, other AWS MCPs) needs a short-lived STS session token. A `credential_process` entry in `~/.aws/config [default]` serves a cached session file (`~/.codepresso/aws-session.json`), so all AWS tooling picks up the session automatically without per-tool changes.
 
-**Setup (one-time, `aws-cli setup`):** backs up `~/.aws/credentials` and `~/.aws/config`, relocates the `[default]` long-term key to `[codepresso-source]`, writes a `credential_process = node …/aws-cred-process.mjs` line into `[default]`, auto-detects the virtual TOTP MFA serial via `aws iam list-mfa-devices --profile codepresso-source`, and flips `aws.enabled` in `~/.codepresso/config.json`.
+**Setup (one-time, `aws-cli setup`):** backs up `~/.aws/credentials` and `~/.aws/config`, relocates the `[default]` long-term key to `[codepresso-source]`, copies `aws-cred-process.mjs` and its imports to `~/.codepresso/bin/`, writes `credential_process = node "~/.codepresso/bin/aws-cred-process.mjs"` (absolute path) into `[default]`, auto-detects the virtual TOTP MFA serial via `aws iam list-mfa-devices --profile codepresso-source`, and flips `aws.enabled` in `~/.codepresso/config.json`.
+
+**Stable entry path:** plugin updates install into a new versioned cache dir and delete the old one, so `credential_process` must never point into the plugin cache. `repairCredProcess()` (run by the SessionStart hook and `aws-cli status` when `aws.enabled`) refreshes the `~/.codepresso/bin` copy and repoints a `[default]` `credential_process` that still references some other `aws-cred-process.mjs` path (backup: `~/.aws/config.codepresso-repair.bak`, so setup's pre-codepresso `.codepresso.bak` stays intact). Foreign `credential_process` values are left alone.
 
 **Reactive trigger:** Two detection points wake the `aws-login` skill without user remembering to do so:
 - **cloud-dev MCP** (`mcp/cloud-dev-server.mjs`): catch block checks `isMfaCredentialError(error)` and, when `aws.enabled` and cache is invalid, returns `MFA_REQUIRED: … Run /codepresso:aws-login`.
@@ -152,7 +155,7 @@ When MFA enforcement is active on AWS IAM, every AWS channel (cloud-dev MCP, raw
 
 Handles the recurring live inbound "응시자 시험이 N분 만에 끝났다". `scripts/candidate-session-cli.mjs investigate --email <e> [--assessment <id>] [--format chat]`:
 
-- **DB:** RDS Data API (`aws rds-data execute-statement`) on the Seoul live cluster `codepresso-global` (Data API enabled in `monorepo/infra/opt/main.tf`), as `readonly_viewer` via the `opt/rds-proxy` secret. One fixed, parameterized SELECT over `main.user` ↔ `user_map_custom_assessment` ↔ `custom_assessment`. No bastion tunnel or Postgres client.
+- **DB:** RDS Data API (`aws rds-data execute-statement`) on the Seoul live cluster `codepresso-global` (Data API enabled in `monorepo/infra/opt/main.tf`), as `readonly_viewer` via the `opt/rds-readonly-viewer` secret. One fixed, parameterized SELECT over `main.user` ↔ `user_map_custom_assessment` ↔ `custom_assessment`. No bastion tunnel or Postgres client.
 - **Logs:** `filter-log-events` on `/aws/ecs/main-backend-opt` from `started_at − 15m` to `ended_at + 5m`. Matches the user UUID (MDC) plus numeric-id lines, because Quartz worker lines carry an empty MDC uid.
 - **Verdict** (`analyzeSession`, 60s tolerance): effective deadline = min(`started_at` + `duration` + extensions, window close). `WINDOW_CLOSE` / `TIME_LIMIT` / `EARLY_SUBMIT` / `ENDED_AFTER_DEADLINE` / `NOT_COMPLETED`. The completion line's thread tells who submitted: `http-nio-*` = browser, `schedulerFactoryBean_Worker-*` = Quartz job.
 - **Timezone:** backend/main stores KST `timestamp without time zone`; `parseKst` converts to epoch ms.
