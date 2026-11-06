@@ -5,15 +5,20 @@ export function renameSection(text, from, to) {
   return lines.map((l) => (l.trim() === `[${from}]` ? `[${to}]` : l)).join('\n');
 }
 
-export function hasSectionKey(text, section, key) {
+export function getSectionValue(text, section, key) {
   const lines = (text || '').split('\n');
   const start = lines.findIndex((l) => l.trim() === `[${section}]`);
-  if (start === -1) return false;
+  if (start === -1) return null;
   for (let i = start + 1; i < lines.length; i++) {
     if (/^\s*\[/.test(lines[i])) break;
-    if (new RegExp(`^\\s*${key}\\s*=`).test(lines[i])) return true;
+    const m = lines[i].match(new RegExp(`^\\s*${key}\\s*=\\s*(.*?)\\s*$`));
+    if (m) return m[1];
   }
-  return false;
+  return null;
+}
+
+export function hasSectionKey(text, section, key) {
+  return getSectionValue(text, section, key) !== null;
 }
 
 export function upsertSectionKV(text, section, kv) {

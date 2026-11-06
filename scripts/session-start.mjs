@@ -7,6 +7,7 @@
 
 import { readStdin } from './lib/stdin.mjs';
 import { loadConfig, ensureSetup, getStateDir } from './lib/config.mjs';
+import { repairCredProcess } from './lib/aws-cred-install.mjs';
 import { createLogger } from './lib/logger.mjs';
 import { localDateStr } from './lib/dates.mjs';
 import { getCurrentBranch, findPrForBranch, isMainBranch, getHeadCommit, getGitRoot, listSubmodules } from './lib/git-utils.mjs';
@@ -159,6 +160,15 @@ async function main() {
 
   try {
     const config = loadConfig();
+    // Plugin updates delete the old cache dir; keep ~/.aws/config off it.
+    if (config.aws?.enabled) {
+      try {
+        const repair = repairCredProcess();
+        if (repair.rewired) log.info(`credential_process repointed: ${repair.from} -> ${repair.to}`);
+      } catch (err) {
+        log.error(`credential_process repair failed: ${err.message}`);
+      }
+    }
     let gitRoot = getGitRoot();
     let branch = getCurrentBranch(gitRoot);
     const onMainBranch = !branch || isMainBranch(branch);
