@@ -18,7 +18,7 @@ Mint a 4-hour MFA-backed AWS session and cache it so every AWS channel works.
    node "${CLAUDE_PLUGIN_ROOT}/scripts/aws-cli.mjs" status
    ```
    - If `enabled` is false → tell the user to run `/codepresso:setup` first (AWS MFA not configured). Stop.
-   - If `sessionValid` is true → no refresh needed; tell the user and retry their original action.
+   - If `sessionValid` is true → no refresh needed; tell the user and retry their original action. A non-null `credProcessRepaired` means `~/.aws/config` pointed at a deleted plugin version and was just repointed — that was the cause of the failure.
    - If `mfaSerial` is null → tell the user to register a virtual TOTP device, then run setup again. Stop.
 
 2. Ask the user for their **6-digit MFA code** (use AskUserQuestion or a direct prompt). Do not store it.

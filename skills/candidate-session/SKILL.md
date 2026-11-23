@@ -31,6 +31,7 @@ Answer "응시자 X가 시험이 N분 만에 끝났다는데?" type inbound in o
    node "${CLAUDE_PLUGIN_ROOT}/scripts/candidate-session-cli.mjs" investigate --email <EMAIL> [--assessment <ID>]
    ```
    - `error: AWS_AUTH` → follow `codepresso:aws-login`, then rerun.
+   - `password authentication failed for user "readonly_viewer"` → the `readonly_viewer` password was rotated in SSM (`/online-platform-global/properties_opt/datasource-readonly-password`) without updating the `opt/rds-readonly-viewer` secret. Not an MFA problem. Ask the user before writing the SSM value into the secret's `password` field (`put-secret-value`, keep other keys), then rerun.
    - `user: null` → no candidate with that email on live. Report that and stop.
    - `assessmentNotFound: true` → the candidate has no session for that assessment. List the sessions they do have.
 

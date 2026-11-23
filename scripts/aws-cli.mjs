@@ -4,10 +4,10 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, copyFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { loadConfig } from './lib/config.mjs';
 import { getSessionFile, readCache, isSessionValid, parseMfaSerial, parseStsSessionToken, writeCache, redact } from './lib/aws-session.mjs';
 import { renameSection, upsertSectionKV, hasSectionKey } from './lib/aws-ini.mjs';
+import { installCredProcess, credProcessCommand, repairCredProcess } from './lib/aws-cred-install.mjs';
 
 function awsJson(args) {
   return JSON.parse(execFileSync('aws', [...args, '--output', 'json'], { encoding: 'utf-8' }));
@@ -17,12 +17,19 @@ function cmdStatus() {
   const cfg = loadConfig();
   const cache = readCache(getSessionFile(cfg));
   const valid = isSessionValid(cache);
+  let repair = { rewired: false };
+  let repairError = null;
+  if (cfg.aws?.enabled) {
+    try { repair = repairCredProcess(); } catch (e) { repairError = e.message; }
+  }
   console.log(JSON.stringify({
     enabled: !!cfg.aws?.enabled,
     sourceProfile: cfg.aws?.sourceProfile,
     mfaSerial: cfg.aws?.mfaSerial,
     sessionValid: valid,
     expiration: cache?.Expiration || null,
+    credProcessRepaired: repair.rewired ? repair.to : null,
+    credProcessRepairError: repairError,
   }));
 }
 
@@ -76,7 +83,7 @@ function cmdSetup() {
   const awsDir = join(homedir(), '.aws');
   const credPath = join(awsDir, 'credentials');
   const confPath = join(awsDir, 'config');
-  const credProcessScript = join(dirname(fileURLToPath(import.meta.url)), 'aws-cred-process.mjs');
+  const credProcessScript = installCredProcess();
 
   // 1. Back up + relocate long-term [default] key → [codepresso-source]
   if (existsSync(credPath)) {
@@ -92,7 +99,7 @@ function cmdSetup() {
   // 2. Back up + write [default] credential_process into ~/.aws/config
   mkdirSync(awsDir, { recursive: true });
   const confText = existsSync(confPath) ? (copyFileSync(confPath, `${confPath}.codepresso.bak`), readFileSync(confPath, 'utf-8')) : '';
-  const newConf = upsertSectionKV(confText, 'default', { credential_process: `node ${credProcessScript}`, region });
+  const newConf = upsertSectionKV(confText, 'default', { credential_process: credProcessCommand(credProcessScript), region });
   writeFileSync(confPath, newConf);
 
   // 3. Detect mfaSerial via the source profile (allowed without MFA)
