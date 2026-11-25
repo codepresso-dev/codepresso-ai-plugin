@@ -41,8 +41,8 @@ codepresso-plugin/
 │   ├── session-start.mjs          # SessionStart hook: detect branch/PR, fetch Notion tasks, daily greeting
 │   ├── daily-chat-greeting.mjs    # Detached: weekday morning Google Chat greeting
 │   ├── daily-chat-summary.mjs     # Evening summary script (manual or scheduled)
-│   ├── pre-tool-notion-inject.mjs # PreToolUse hook: task picker + PR title enforcement
-│   ├── post-tool-git-watcher.mjs  # PostToolUse:Bash hook: PR commit comment + merge transition
+│   ├── pre-tool-notion-inject.mjs # PreToolUse hook: task picker + PR title enforcement (opt-in notion.taskWorkflow) + wiki notice
+│   ├── post-tool-git-watcher.mjs  # PostToolUse:Bash hook: PR commit comment + merge transition (opt-in notion.taskWorkflow)
 │   ├── handle-merge-transition.mjs # Detached: PR merge → task complete → epic cascade
 │   └── inbox-cli.mjs              # CLI dispatcher invoked by the scan-inbox skill (prep/redact/stage/complete/schema-cache)
 ├── skills/
@@ -77,9 +77,9 @@ codepresso-plugin/
 
 ```
 Session Start → SessionStart hook → resolve gitRoot → detect branch → find PR → fetch Notion tasks → (Mon-Fri + first-of-day) spawn daily-chat-greeting → cache state
-First Tool → PreToolUse hook → inject task picker (AskUserQuestion) → user selects task → save to file
+First Tool → PreToolUse hook → [notion.taskWorkflow.enabled only] inject task picker (AskUserQuestion) → user selects task → save to file
 Git Commit → PostToolUse:Bash hook → if PR exists: detached `gh pr comment` with commit info
-PR Merge → PostToolUse:Bash hook → detect `gh pr merge` → spawn handle-merge-transition.mjs
+PR Merge → PostToolUse:Bash hook → [notion.taskWorkflow.enabled only] detect `gh pr merge` → spawn handle-merge-transition.mjs
 Weekday 18:03 (session cron) → `/codepresso:daily-summary` → daily-chat-summary.mjs → claude -p summary → gws send
 Inbox scan      → /codepresso:scan-inbox OR morning session-start instruction
                 → claude_ai_Gmail + gws fetchChatUnread → filter by seen-IDs
@@ -92,7 +92,7 @@ Inbox scan      → /codepresso:scan-inbox OR morning session-start instruction
 ## Key Design Decisions
 
 ### 1. Silent Hook Pattern
-All hooks return `{ continue: true }`. SessionStart emits short `additionalContext` strings: the always-on team Korean writing rules (`rules/korean-output.md`, ~300 tokens) plus on-demand items (PR detection, Notion task list, sprint info). PreToolUse can block on `gh pr create` to enforce Notion link discipline (see Decision 4).
+All hooks return `{ continue: true }`. SessionStart emits short `additionalContext` strings: the always-on team Korean writing rules (`rules/korean-output.md`, ~300 tokens) plus on-demand items (PR detection; Notion task list and sprint info only when `notion.taskWorkflow.enabled`). PreToolUse can block on `gh pr create` to enforce Notion link discipline, but only when the opt-in task workflow is enabled (see Decision 4).
 
 ### 2. Two-Level Config Merge
 `defaults ← ~/.codepresso/config.json ← .codepresso.json`. Merge is **shallow per-section**: project values override global values within each top-level key but don't replace entire sections. See `scripts/lib/config.mjs:mergeSections()`.
@@ -102,7 +102,9 @@ All hooks return `{ continue: true }`. SessionStart emits short `additionalConte
 - Config: separate path `~/.codepresso/config.json` (not `~/.claude/`)
 - Skills: all use `codepresso:` prefix
 
-### 4. Notion–GitHub Auto-Linking via PR Title
+### 4. Notion–GitHub Auto-Linking via PR Title (opt-in)
+**Gated by `notion.taskWorkflow.enabled` (default `false` since 2026-11-23, when the team moved task tracking to GitHub issues/PRs/design docs).** When it is off, the PreToolUse hook injects no task picker and never blocks `gh pr create` (even if a stale `codepresso-selected-task.json` exists), and `gh pr merge` triggers no Notion transition (guarded in both `post-tool-git-watcher.mjs` and `handle-merge-transition.mjs`). SessionStart still fetches Notion tasks for read-only features (daily greeting) but does not show them to the model. The rest of this section describes the enabled behaviour.
+
 The PreToolUse hook extracts Notion's `unique_id` property (e.g., `TSK-9945`) from task pages and enforces a `[UNIQUE-ID] description` PR title format. When `gh pr create` is detected without the Notion ID prefix, the hook **blocks** the command and instructs Claude to re-run with the correct format. This enables Notion's GitHub integration to automatically link PRs to tasks.
 
 **No-task enforcement:** When `gh pr create` runs without a selected task, the hook blocks and emits a pick-or-create `AskUserQuestion` flow (top 3 active tasks + "Create new from PR title"). Picking an existing task transitions it to 진행 중; picking "Create new" calls `notion_create_page`. The selected/created task is written to `codepresso-selected-task.json` and `gh pr create` is retried with the `[UNIQUE-ID]` prefix. Falls through silently when Notion is unconfigured.
@@ -195,6 +197,7 @@ The extension registers no status-line item and does not alter Claude hook behav
 - **Timeout:** 3s
 - **Matcher:** `*` (all tools)
 - **Output:** `{ continue: true/false, hookSpecificOutput?: { hookEventName, additionalContext } }`
+- **Gate:** Behaviors 1–3 run only when `notion.taskWorkflow.enabled === true` (`isTaskWorkflowEnabled` in `lib/config.mjs`). Otherwise the hook returns `{ continue: true }` (plus Behavior 4 when pending).
 - **Behavior 1 — Task Picker:** On first tool use, injects cached Notion tasks as `additionalContext` with instructions for Claude to present an interactive `AskUserQuestion` picker.
 - **Behavior 2 — PR Title Enforcement:** On `gh pr create` Bash commands, reads the selected task. If a task with a `uniqueId` is selected and the PR title doesn't include it, **blocks** the command.
 - **Behavior 3 — PR Link Enforcement (no-task case):** On `gh pr create` without a selected task, blocks with a pick-or-create `AskUserQuestion`. Falls through silently when Notion is unconfigured.
@@ -205,7 +208,7 @@ The extension registers no status-line item and does not alter Claude hook behav
 - **Timeout:** 3s
 - **Matcher:** `Bash` only
 - **Output:** `{ continue: true, additionalContext?: string }`
-- **Side effects:** Spawns detached `gh pr comment` for git commits when a PR exists. Detects `gh pr merge` and spawns `handle-merge-transition.mjs` for Notion status transitions.
+- **Side effects:** Spawns detached `gh pr comment` for git commits when a PR exists. Detects `gh pr merge` and spawns `handle-merge-transition.mjs` for Notion status transitions (only when `notion.taskWorkflow.enabled`).
 - **Failure mode:** Silent
 
 ---
@@ -256,6 +259,9 @@ All state lives in `.codepresso/state/` with `codepresso-` prefix:
       "autoTransition": true,                      // Auto-transition task to "진행 중" on selection
       "epicAutoComplete": true,                    // Auto-complete epic when all tasks done
       "prTitleFormat": "task"                      // PR title format: "task" → [TSK-XXX], "epic+task" → [GP-XXX][TSK-XXX]
+    },
+    "taskWorkflow": {
+      "enabled": false                             // Opt-in: task picker, [TSK-XXX] PR title enforcement, merge auto-complete
     }
   },
   "deploy": {

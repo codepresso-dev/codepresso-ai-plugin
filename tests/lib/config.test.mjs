@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { isExcluded, isSetupComplete, ensureSetup, loadConfig, getStateDir, validateConfig } from '../../scripts/lib/config.mjs';
+import { isExcluded, isSetupComplete, ensureSetup, loadConfig, getStateDir, validateConfig, isTaskWorkflowEnabled } from '../../scripts/lib/config.mjs';
 import { existsSync, unlinkSync, rmdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -108,6 +108,9 @@ describe('config.mjs', () => {
       assert.strictEqual(config.notion.sprintWorkflow.enabled, false);
       assert.strictEqual(config.notion.sprintWorkflow.autoTransition, true);
       assert.strictEqual(config.notion.sprintWorkflow.epicAutoComplete, true);
+      // Notion task workflow (picker, PR title enforcement, merge auto-complete) is opt-in
+      assert.strictEqual(config.notion.taskWorkflow.enabled, false);
+      assert.strictEqual(isTaskWorkflowEnabled(config), false);
     });
 
     it('returns epicDocs config defaults', () => {
@@ -243,5 +246,27 @@ describe('wiki OMP auto-capture config', () => {
     assert.ok(warnings.some((warning) => warning.includes('wiki.autoCapture') && warning.includes('boolean')));
     assert.ok(warnings.some((warning) => warning.includes('wiki.autoSync') && warning.includes('boolean')));
     assert.ok(warnings.some((warning) => warning.includes('wiki.workHistoryPath') && warning.includes('string')));
+  });
+});
+
+describe('isTaskWorkflowEnabled', () => {
+  it('is true only for an explicit boolean true', () => {
+    assert.strictEqual(isTaskWorkflowEnabled({ notion: { taskWorkflow: { enabled: true } } }), true);
+    for (const c of [undefined, null, {}, { notion: {} }, { notion: { taskWorkflow: {} } },
+      { notion: { taskWorkflow: { enabled: false } } }, { notion: { taskWorkflow: { enabled: 'true' } } },
+      { notion: { sprintWorkflow: { enabled: true } } }]) {
+      assert.strictEqual(isTaskWorkflowEnabled(c), false, JSON.stringify(c));
+    }
+  });
+
+  it('warns on a non-boolean taskWorkflow.enabled', () => {
+    const warnings = validateConfig({ notion: { taskWorkflow: { enabled: 'yes' } } });
+    assert.ok(warnings.some(w => w.includes('notion.taskWorkflow.enabled should be boolean')), JSON.stringify(warnings));
+  });
+
+  it('warns when taskWorkflow is not an object (e.g. "taskWorkflow": true)', () => {
+    const warnings = validateConfig({ notion: { taskWorkflow: true } });
+    assert.ok(warnings.some(w => w.includes('notion.taskWorkflow should be an object')), JSON.stringify(warnings));
+    assert.strictEqual(isTaskWorkflowEnabled({ notion: { taskWorkflow: true } }), false);
   });
 });

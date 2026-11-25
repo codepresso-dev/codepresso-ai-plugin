@@ -3,7 +3,12 @@
 /**
  * Codepresso PreToolUse hook — Notion task picker + PR link enforcement.
  *
- * Three responsibilities:
+ * Everything below is the opt-in Notion task workflow and runs only when
+ * `notion.taskWorkflow.enabled` is true (default false since 2026-11-23,
+ * when the team moved task tracking to GitHub issues/PRs). When it is off
+ * the hook passes every tool through and only surfaces the wiki notice.
+ *
+ * Three responsibilities (task workflow on):
  * 1. On the first tool use of a session, injects cached Notion tasks as
  *    additionalContext with instructions for Claude to present an interactive
  *    AskUserQuestion picker.
@@ -21,7 +26,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { getStateDir, loadConfig } from './lib/config.mjs';
+import { getStateDir, loadConfig, isTaskWorkflowEnabled } from './lib/config.mjs';
 import { readWikiStatus, formatWikiNotice } from './lib/wiki-state.mjs';
 
 const STATE_DIR = getStateDir();
@@ -501,8 +506,19 @@ try {
   // Compute wiki notice once — only if not already shown this session
   const wikiNotice = session.wikiNoticeShown ? null : formatWikiNotice(readWikiStatus());
 
+  // Notion task workflow is opt-in (notion.taskWorkflow.enabled, default off).
+  // When off: no task picker, no `[TSK-…]` PR title enforcement, no fallback
+  // Notion fetch, and the selected-task file is never read. Only the
+  // non-Notion wiki notice is still surfaced.
+  if (!isTaskWorkflowEnabled(loadConfig())) {
+    if (wikiNotice) {
+      emitWikiOnly(session, wikiNotice);
+    } else {
+      process.stdout.write(JSON.stringify({ continue: true }));
+    }
+  }
   // Already shown Notion context — check for gh pr create interception, then wiki notice
-  if (session.notionContextShown) {
+  else if (session.notionContextShown) {
     if (
       toolName === 'Bash' &&
       /\bgh\s+pr\s+create\b/.test(toolInput.command || '')

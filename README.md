@@ -6,11 +6,10 @@ Claude Code·Codex·OMP용 팀 워크플로우 플러그인 — Notion 작업 �
 
 ## 주요 기능
 
-- **Notion 작업 선택기**: 세션 시작 시 Notion 작업을 고르면 상태가 자동으로 "진행 중"으로 바뀌고, PR 제목에 작업 ID가 강제됩니다.
-- **PR 제목 강제**: `gh pr create` 시 선택한 작업의 unique ID(예: `TSK-9945`)가 없으면 차단합니다. Notion의 GitHub 연동이 PR을 자동으로 작업에 연결해 줍니다.
+- **Notion 작업 워크플로우 (선택, 기본 꺼짐)**: `notion.taskWorkflow.enabled: true`일 때만 동작합니다. 작업 선택기(고르면 "진행 중"으로 전환), `gh pr create` 시 작업 ID(예: `TSK-9945`) 없는 PR 제목 차단, PR 머지 시 작업·에픽 자동 완료를 묶은 기능입니다. 2026-11-23부터 팀이 작업 추적을 GitHub 이슈·PR·설계 문서로 옮겨 기본값을 끔으로 바꿨습니다. 꺼져 있어도 Notion 조회 기능(아침 인사, sprint-dashboard, notion-sync, scan-inbox 등)은 그대로 동작합니다.
 - **Git 활동 추적**: 활성 PR에서의 `git commit`을 감지해 `gh pr comment`로 커밋 코멘트를 자동 게시합니다.
-- **PR 머지 → Notion 상태 전이**: `gh pr merge`를 감지해 연결된 Notion 작업(그리고 에픽의 마지막 작업이라면 에픽까지)을 완료 상태로 전환합니다.
-- **스프린트 워크플로우**: 세션 시작 시 Sprint → Epic → Task 계층을 가져오고, 에픽의 모든 작업이 끝나면 에픽도 자동 완료 처리합니다.
+- **PR 머지 → Notion 상태 전이 (작업 워크플로우를 켠 경우)**: `gh pr merge`를 감지해 연결된 Notion 작업(그리고 에픽의 마지막 작업이라면 에픽까지)을 완료 상태로 전환합니다.
+- **스프린트 워크플로우**: 세션 시작 시 Sprint → Epic → Task 계층을 가져옵니다. 에픽의 모든 작업이 끝나면 에픽도 자동 완료 처리합니다(작업 워크플로우를 켠 경우, PR 머지 때).
 - **🆕 받은편지함 작업 트래커**: Gmail과 Google Chat에 묻혀 잊혀지는 작업 요청을 매일 아침 자동으로 스캔합니다. AI가 후보를 골라주면 한 번의 클릭으로 마감일 있는 Notion 작업으로 변환되며, 아침 인사 메시지에는 마감 임박/지난 작업이 함께 표시됩니다.
 - **🆕 Figma → 프론트엔드 scaffold (v0.2.9)**: Figma URL + node-id + PAT만 주면 디자인 시스템 토큰이 매핑된 Vue/React scaffold를 자동 생성합니다. Codepresso 검증 결과 픽셀 일치율 87~97%, 하드코딩 hex 0건, 토큰 준수율 6× 향상, 퍼블리셔 시간 75~85% 절감.
 - **🆕 보안 진단 (v0.2.12)**: `/codepresso:security-audit` — OWASP Top 10:2025와 2025–2026 최신 웹 보안 사고를 근거로 코드·인프라를 스캔하고(기술 스택 무관), 선택 시 개발자 머신의 로컬 자격증명까지 점검한 뒤, 인터뷰를 거쳐 점수가 매겨진 리메디에이션 리포트를 생성합니다. 시크릿 값은 절대 출력하지 않습니다.
@@ -27,10 +26,10 @@ Claude Code·Codex·OMP용 팀 워크플로우 플러그인 — Notion 작업 �
 ## 무엇이 편리해지나요?
 
 ### 🔁 반복 작업이 사라집니다
-- **PR ↔ Notion 연결**: 매번 Notion 작업을 PR에 손으로 붙이던 일이 제목 강제로 자동화 → 클릭 3~4번이 0번으로.
+- **PR ↔ Notion 연결 (작업 워크플로우를 켠 경우)**: 매번 Notion 작업을 PR에 손으로 붙이던 일이 제목 강제로 자동화 → 클릭 3~4번이 0번으로.
 - **커밋 진행 상황 공유**: 커밋마다 PR에 코멘트 다는 일을 git 훅이 대신 → 리뷰어가 따라가기 쉬워집니다.
-- **작업 완료 처리**: PR 머지 후 Notion에 가서 상태 바꾸는 일을 잊지 않아도 됩니다 (자동 전이).
-- **에픽 자동 완료**: 에픽의 마지막 작업이 끝나면 에픽까지 자동으로 완료로 표시.
+- **작업 완료 처리 (작업 워크플로우를 켠 경우)**: PR 머지 후 Notion에 가서 상태 바꾸는 일을 잊지 않아도 됩니다 (자동 전이).
+- **에픽 자동 완료 (작업 워크플로우를 켠 경우)**: 에픽의 마지막 작업이 끝나면 에픽까지 자동으로 완료로 표시.
 
 ### 📥 잊혀지는 작업이 없어집니다
 - **Gmail/Chat 자동 triage**: 받은편지함과 채팅의 작업 요청이 알림 너머로 사라지지 않습니다. 매일 아침 AI가 후보를 추려 보여줍니다.
@@ -224,6 +223,9 @@ codepresso:setup
       "autoTransition": true,
       "epicAutoComplete": true,
       "prTitleFormat": "task"
+    },
+    "taskWorkflow": {
+      "enabled": false
     }
   },
   "inbox": {
@@ -275,9 +277,9 @@ $ claude
 - 평일 첫 세션이면 아침 인사를 Google Chat으로 전송 (설정된 경우)
 - 🆕 `inbox.enabled: true`라면 받은편지함 스캔 안내문을 주입 → Claude가 Gmail + Chat을 훑어 작업 후보를 제시
 
-### 2. 작업 선택
+### 2. 작업 선택 (작업 워크플로우를 켠 경우)
 
-활성 Notion 작업이 대화식 picker로 표시됩니다:
+`notion.taskWorkflow.enabled: true`일 때만 활성 Notion 작업이 대화식 picker로 표시됩니다. 기본값(꺼짐)에서는 이 단계와 아래 PR 제목 강제·머지 시 자동 완료가 모두 생략됩니다:
 
 ```
 어떤 작업을 하시겠어요?
@@ -298,7 +300,7 @@ $ claude
 
 ### 4. PR 생성
 
-PR을 만들 때 Codepresso는 Notion 작업 ID를 **강제**합니다:
+작업 워크플로우를 켠 경우, PR을 만들 때 Codepresso는 Notion 작업 ID를 **강제**합니다(꺼져 있으면 PR 생성을 막지 않습니다):
 
 ```
 # 이건 차단됩니다:
@@ -312,7 +314,7 @@ gh pr create --title "TSK-9945 Add PR title format"
 
 ### 5. 머지
 
-`gh pr merge`를 하면 연결된 Notion 작업이 완료로 전이됩니다. 에픽의 마지막 작업이 막 끝났다면 에픽도 완료로 표시됩니다.
+작업 워크플로우를 켠 경우 `gh pr merge`를 하면 연결된 Notion 작업이 완료로 전이됩니다. 에픽의 마지막 작업이 막 끝났다면 에픽도 완료로 표시됩니다.
 
 ---
 
@@ -583,9 +585,9 @@ CODEPRESSO_DRY_RUN=1 node scripts/daily-chat-summary.mjs
 
 ## Notion 연동
 
-### 작업 선택기 + PR 자동 연결
+### 작업 선택기 + PR 자동 연결 (선택, 기본 꺼짐)
 
-세션 시작 시 Codepresso가 Notion DB에서 작업을 가져와 대화식 picker로 표시합니다. 작업을 선택하면:
+`notion.taskWorkflow.enabled: true`로 켜면(전역 `~/.codepresso/config.json` 또는 저장소의 `.codepresso.json`. 저장소 설정이 전역 설정보다 우선하므로, 저장소에 커밋된 `.codepresso.json`에서 켜면 그 저장소를 쓰는 모두에게 적용됩니다), 세션 시작 시 Codepresso가 Notion DB에서 작업을 가져와 대화식 picker로 표시합니다. 작업을 선택하면:
 
 1. Notion에서 작업 상태가 "진행 중"으로 변경
 2. 작업의 unique ID (예: `TSK-9945`)가 로컬에 저장
@@ -654,7 +656,7 @@ codepresso-plugin/
 │   │   ├── redactor.mjs           # 비밀 정보 마스킹 (받은편지함 스캔용)
 │   │   └── inbox-state.mjs        # 받은편지함: seen-ID dedup, 후보 JSONL, 스키마 캐시, 게이팅 + 포매터
 │   ├── session-start.mjs          # SessionStart: 브랜치/PR 감지 + Notion 작업 fetch + 아침 인사 spawn + 🆕 받은편지함 스캔 안내 주입
-│   ├── pre-tool-notion-inject.mjs # PreToolUse: 작업 picker + PR 제목 강제
+│   ├── pre-tool-notion-inject.mjs # PreToolUse: 작업 picker + PR 제목 강제 (notion.taskWorkflow.enabled일 때만)
 │   ├── post-tool-git-watcher.mjs  # PostToolUse:Bash: git commit 코멘트 + 머지 전이
 │   ├── handle-merge-transition.mjs # 분리: PR 머지 → 작업 완료 → 에픽 cascade
 │   ├── daily-chat-greeting.mjs    # 아침 Google Chat 인사 (분리) — 🆕 마감 지난/오늘 마감 섹션 포함
