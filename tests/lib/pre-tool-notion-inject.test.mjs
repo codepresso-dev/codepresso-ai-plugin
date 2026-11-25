@@ -9,7 +9,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -23,6 +23,8 @@ function runHook(cwd, stdinPayload) {
     input: JSON.stringify(stdinPayload),
     encoding: 'utf-8',
     timeout: 5000,
+    // Isolate from the developer's real ~/.codepresso/config.json
+    env: { ...process.env, HOME: cwd, USERPROFILE: cwd },
   });
   let parsed = null;
   try {
@@ -43,6 +45,15 @@ function writeProjectConfig(dir, config) {
   writeFileSync(join(dir, '.codepresso.json'), JSON.stringify(config));
 }
 
+// The Notion task workflow is opt-in (notion.taskWorkflow.enabled, default false).
+function withTaskWorkflow(config) {
+  return { ...config, notion: { ...(config.notion || {}), taskWorkflow: { enabled: true } } };
+}
+
+function writeSelectedTask(dir, task) {
+  writeFileSync(join(dir, '.codepresso', 'state', 'codepresso-selected-task.json'), JSON.stringify(task));
+}
+
 let tempDir;
 beforeEach(() => {
   tempDir = mkdtempSync(join(tmpdir(), 'codepresso-hook-'));
@@ -51,7 +62,7 @@ afterEach(() => {
   if (tempDir) rmSync(tempDir, { recursive: true, force: true });
 });
 
-describe('pre-tool-notion-inject.mjs — PR link enforcement', () => {
+describe('pre-tool-notion-inject.mjs — PR link enforcement (taskWorkflow enabled)', () => {
   describe('no selected task + Notion configured', () => {
     it('blocks gh pr create and emits pick-or-create instructions', () => {
       writeSession(tempDir, {
@@ -61,13 +72,13 @@ describe('pre-tool-notion-inject.mjs — PR link enforcement', () => {
           { id: 'task-2', title: 'Add logging', uniqueId: 'TSK-101', status: '진행 중' },
         ],
       });
-      writeProjectConfig(tempDir, {
+      writeProjectConfig(tempDir, withTaskWorkflow({
         notion: {
           apiKey: 'ntn_test',
           databases: { task: 'db-task-id' },
           userId: 'user-uuid',
         },
-      });
+      }));
 
       const { json } = runHook(tempDir, {
         hookInput: {
@@ -92,9 +103,9 @@ describe('pre-tool-notion-inject.mjs — PR link enforcement', () => {
         notionContextShown: true,
         notionTasks: [{ id: 'task-1', title: 'Done one', uniqueId: 'TSK-99', status: '완료' }],
       });
-      writeProjectConfig(tempDir, {
+      writeProjectConfig(tempDir, withTaskWorkflow({
         notion: { apiKey: 'ntn_test', databases: { task: 'db-task-id' } },
-      });
+      }));
 
       const { json } = runHook(tempDir, {
         hookInput: {
@@ -111,9 +122,9 @@ describe('pre-tool-notion-inject.mjs — PR link enforcement', () => {
   describe('no selected task + Notion unconfigured', () => {
     it('falls through (continue:true) when apiKey is missing', () => {
       writeSession(tempDir, { notionContextShown: true, notionTasks: [] });
-      writeProjectConfig(tempDir, {
+      writeProjectConfig(tempDir, withTaskWorkflow({
         notion: { apiKey: null, databases: { task: 'db-task-id' } },
-      });
+      }));
 
       const { json } = runHook(tempDir, {
         hookInput: {
@@ -128,9 +139,9 @@ describe('pre-tool-notion-inject.mjs — PR link enforcement', () => {
 
     it('falls through when databases.task is missing', () => {
       writeSession(tempDir, { notionContextShown: true, notionTasks: [] });
-      writeProjectConfig(tempDir, {
+      writeProjectConfig(tempDir, withTaskWorkflow({
         notion: { apiKey: 'ntn_test', databases: { task: null } },
-      });
+      }));
 
       const { json } = runHook(tempDir, {
         hookInput: {
@@ -146,9 +157,9 @@ describe('pre-tool-notion-inject.mjs — PR link enforcement', () => {
   describe('no selected task + missing --title', () => {
     it('falls through so gh fails naturally', () => {
       writeSession(tempDir, { notionContextShown: true, notionTasks: [] });
-      writeProjectConfig(tempDir, {
+      writeProjectConfig(tempDir, withTaskWorkflow({
         notion: { apiKey: 'ntn_test', databases: { task: 'db-task-id' } },
-      });
+      }));
 
       const { json } = runHook(tempDir, {
         hookInput: {
@@ -164,9 +175,9 @@ describe('pre-tool-notion-inject.mjs — PR link enforcement', () => {
   describe('selected task exists — existing behavior preserved', () => {
     it('passes through when title already contains the uniqueId', () => {
       writeSession(tempDir, { notionContextShown: true, notionTasks: [] });
-      writeProjectConfig(tempDir, {
+      writeProjectConfig(tempDir, withTaskWorkflow({
         notion: { apiKey: 'ntn_test', databases: { task: 'db-task-id' } },
-      });
+      }));
       const stateDir = join(tempDir, '.codepresso', 'state');
       writeFileSync(
         join(stateDir, 'codepresso-selected-task.json'),
@@ -185,9 +196,9 @@ describe('pre-tool-notion-inject.mjs — PR link enforcement', () => {
 
     it('blocks when title is missing the uniqueId prefix', () => {
       writeSession(tempDir, { notionContextShown: true, notionTasks: [] });
-      writeProjectConfig(tempDir, {
+      writeProjectConfig(tempDir, withTaskWorkflow({
         notion: { apiKey: 'ntn_test', databases: { task: 'db-task-id' } },
-      });
+      }));
       const stateDir = join(tempDir, '.codepresso', 'state');
       writeFileSync(
         join(stateDir, 'codepresso-selected-task.json'),
@@ -219,5 +230,83 @@ describe('pre-tool-notion-inject.mjs — PR link enforcement', () => {
 
       assert.strictEqual(json.continue, true);
     });
+  });
+});
+
+describe('pre-tool-notion-inject.mjs — taskWorkflow disabled (default)', () => {
+  const notionConfigured = { notion: { apiKey: 'ntn_test', databases: { task: 'db-task-id' }, userId: 'user-uuid' } };
+  const tasks = [
+    { id: 'task-1', title: 'Fix auth', uniqueId: 'TSK-100', status: '할 일' },
+    { id: 'task-2', title: 'Add logging', uniqueId: 'TSK-101', status: '진행 중' },
+  ];
+
+  it('injects no task picker on the first tool use and leaves the session unmarked', () => {
+    writeSession(tempDir, { notionContextShown: false, notionTasks: tasks, notionContext: 'TSK-100 Fix auth' });
+    writeProjectConfig(tempDir, notionConfigured);
+
+    const { json } = runHook(tempDir, { hookInput: { toolName: 'Read', toolInput: { file_path: 'x' } } });
+
+    assert.deepStrictEqual(json, { continue: true });
+    const after = JSON.parse(readFileSync(join(tempDir, '.codepresso', 'state', 'codepresso-session.json'), 'utf-8'));
+    assert.strictEqual(after.notionContextShown, false);
+  });
+
+  it('injects no picker when enabled is explicitly false even with sprint context', () => {
+    writeSession(tempDir, { notionContextShown: false, notionTasks: tasks, sprintContext: { sprint: { name: 's' }, epics: [] } });
+    writeProjectConfig(tempDir, { notion: { ...notionConfigured.notion, taskWorkflow: { enabled: false } } });
+
+    const { json } = runHook(tempDir, { hookInput: { toolName: 'Bash', toolInput: { command: 'ls' } } });
+
+    assert.deepStrictEqual(json, { continue: true });
+  });
+
+  it('does not block gh pr create without a task ID when Notion is configured', () => {
+    writeSession(tempDir, { notionContextShown: true, notionTasks: tasks });
+    writeProjectConfig(tempDir, notionConfigured);
+
+    const { json } = runHook(tempDir, {
+      hookInput: { toolName: 'Bash', toolInput: { command: 'gh pr create --title "fix login bug" --body "..."' } },
+    });
+
+    assert.deepStrictEqual(json, { continue: true });
+  });
+
+  it('ignores a stale selected-task file (no [TSK-…] title enforcement)', () => {
+    writeSession(tempDir, { notionContextShown: true, notionTasks: tasks });
+    writeProjectConfig(tempDir, notionConfigured);
+    writeSelectedTask(tempDir, { id: 'task-1', title: 'Fix auth', uniqueId: 'TSK-100' });
+
+    const { json } = runHook(tempDir, {
+      hookInput: { toolName: 'Bash', toolInput: { command: 'gh pr create --title "fix auth bug" --body "..."' } },
+    });
+
+    assert.deepStrictEqual(json, { continue: true });
+  });
+
+  it('treats a non-boolean enabled value as off', () => {
+    writeSession(tempDir, { notionContextShown: true, notionTasks: tasks });
+    writeProjectConfig(tempDir, { notion: { ...notionConfigured.notion, taskWorkflow: { enabled: 'yes' } } });
+
+    const { json } = runHook(tempDir, {
+      hookInput: { toolName: 'Bash', toolInput: { command: 'gh pr create --title "x" --body "y"' } },
+    });
+
+    assert.deepStrictEqual(json, { continue: true });
+  });
+});
+
+describe('pre-tool-notion-inject.mjs — taskWorkflow enabled keeps the picker', () => {
+  it('injects the task picker on the first tool use', () => {
+    writeSession(tempDir, {
+      notionContextShown: false,
+      notionTasks: [{ id: 'task-1', title: 'Fix auth', uniqueId: 'TSK-100', status: '할 일' }],
+      notionContext: 'TSK-100 Fix auth',
+    });
+    writeProjectConfig(tempDir, withTaskWorkflow({ notion: { apiKey: 'ntn_test', databases: { task: 'db-task-id' } } }));
+
+    const { json } = runHook(tempDir, { hookInput: { toolName: 'Read', toolInput: { file_path: 'x' } } });
+
+    assert.strictEqual(json.continue, true);
+    assert.match(json.hookSpecificOutput.additionalContext, /Present an interactive task picker/);
   });
 });

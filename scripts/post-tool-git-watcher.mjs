@@ -7,7 +7,7 @@
  */
 
 import { readStdin } from './lib/stdin.mjs';
-import { getStateDir, loadConfig } from './lib/config.mjs';
+import { getStateDir, loadConfig, isTaskWorkflowEnabled } from './lib/config.mjs';
 import { getSessionFile, readCache, isSessionValid, shouldPromptMfa } from './lib/aws-session.mjs';
 import { createLogger } from './lib/logger.mjs';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -161,7 +161,8 @@ async function main() {
       return;
     }
 
-    if (isGitMerge(command)) {
+    // PR merge -> Notion task auto-complete is part of the opt-in task workflow.
+    if (isTaskWorkflowEnabled(cfg) && isGitMerge(command)) {
       const mergedPr = extractMergedPr(command, session);
       if (mergedPr) {
         log.info(`PR merge detected: #${mergedPr}`);

@@ -45,11 +45,12 @@ configure Notion/sprint workflow integration, and write config files.
    - Present defaults using AskUserQuestion: "Use default Codepresso database IDs?" with options "Yes, use defaults" / "No, enter custom IDs"
    - If custom: prompt each ID individually. Tip: Database ID is in the Notion URL: `notion.so/workspace/<DATABASE_ID>?v=...`
    - Test connection: use `mcp__plugin_codepresso_notion__notion_query_db` or `mcp__notion__notion_query_db` to query each database with `page_size: 1` to verify access
-   - Ask for sprint workflow preferences using AskUserQuestion:
+   - Ask: "Enable the Notion task workflow (task picker on tool use, `[TSK-XXX]` PR title enforcement that blocks `gh pr create`, auto-complete on PR merge)?" using AskUserQuestion. **Default: No** — since 2026-11-23 the team tracks work in GitHub issues/PRs/design docs, so leave `notion.taskWorkflow.enabled` false unless the user explicitly wants it.
+   - Only if the user enables the task workflow, ask for its preferences using AskUserQuestion:
      - Auto-transition tasks to "진행 중" when selected? (default: true)
      - Auto-complete epics when all tasks are done? (default: true)
      - PR title format: "task" for `[TSK-XXX]` only, or "epic+task" for `[GP-XXX][TSK-XXX]`? (default: "task")
-   - Write `notion.databases` and `notion.sprintWorkflow` to config
+   - Write `notion.databases`, `notion.sprintWorkflow` and `notion.taskWorkflow` (`{ "enabled": <answer> }`) to config
 
 4.5. **Epic PRD configuration** (optional — requires Notion from step 3)
    - Ask: "Enable PRD document generation for epics?" using AskUserQuestion
@@ -189,7 +190,7 @@ If the team enforces MFA on AWS access, offer to configure the credential_proces
 - [ ] Notion configured (if requested)
 - [ ] Notion user identity set (userId and displayName in config)
 - [ ] Sprint databases configured (if requested): sprint, epic, task IDs
-- [ ] Sprint workflow preferences set (autoTransition, epicAutoComplete, prTitleFormat)
+- [ ] Notion task workflow decided (`notion.taskWorkflow.enabled`, default false); preferences set only if enabled (autoTransition, epicAutoComplete, prTitleFormat)
 - [ ] MCP tool permissions configured in `.claude/settings.local.json`
 - [ ] Epic PRD configuration set (if requested)
 - [ ] Google Chat daily greeting configured (if requested): gws CLI authenticated, spaceId set

@@ -6,7 +6,7 @@
  */
 
 import { readStdin } from './lib/stdin.mjs';
-import { loadConfig, ensureSetup, getStateDir } from './lib/config.mjs';
+import { loadConfig, ensureSetup, getStateDir, isTaskWorkflowEnabled } from './lib/config.mjs';
 import { repairCredProcess } from './lib/aws-cred-install.mjs';
 import { createLogger } from './lib/logger.mjs';
 import { localDateStr } from './lib/dates.mjs';
@@ -235,7 +235,9 @@ async function main() {
       if (taskResult.status === 'fulfilled' && taskResult.value) {
         notionContext = taskResult.value.formatted;
         notionTasks = taskResult.value.tasks;
-        contextParts.push(taskResult.value.formatted);
+        // The task list is still fetched for read-only features (daily greeting),
+        // but only shown to the model when the opt-in task workflow is on.
+        if (isTaskWorkflowEnabled(config)) contextParts.push(taskResult.value.formatted);
       }
 
       // Sprint fetch result (only if enabled)
@@ -257,7 +259,7 @@ async function main() {
 
         // Add sprint info to context
         const sprint = sprintContext.sprint;
-        if (sprint) {
+        if (sprint && isTaskWorkflowEnabled(config)) {
           const dateStr = sprint.dateRange
             ? ` (${sprint.dateRange.start} - ${sprint.dateRange.end})`
             : '';

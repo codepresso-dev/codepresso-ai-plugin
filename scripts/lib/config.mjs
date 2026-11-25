@@ -29,6 +29,13 @@ const DEFAULT_CONFIG = {
       epicAutoComplete: true,
       prTitleFormat: 'task',    // "task" | "epic+task" | "epic"
     },
+    // Opt-in Notion task workflow: task picker on tool use, `[TSK-…]` PR title
+    // enforcement (blocks `gh pr create`), and auto-complete on PR merge.
+    // Off by default (2026-11-23 team decision: work is tracked in GitHub
+    // issues/PRs/design docs). Read-only Notion features are not affected.
+    taskWorkflow: {
+      enabled: false,
+    },
   },
   deploy: {
     enabled: false,
@@ -186,6 +193,16 @@ export function loadConfig(cwd = process.cwd(), { globalConfigPath } = {}) {
 }
 
 /**
+ * True only when the Notion task workflow is explicitly enabled
+ * (`notion.taskWorkflow.enabled === true`). A missing key, a non-boolean
+ * value or a missing config all mean "off", so the hooks never force Notion
+ * tasks by accident.
+ */
+export function isTaskWorkflowEnabled(config) {
+  return config?.notion?.taskWorkflow?.enabled === true;
+}
+
+/**
  * Ensure the global config file exists, creating it with defaults if missing.
  * Returns true if config now exists (always true unless write fails).
  * @param {string} [globalConfigPath] - Path to global config (defaults to ~/.codepresso/config.json)
@@ -268,6 +285,12 @@ export function validateConfig(config) {
       if (sw.prTitleFormat && !validFormats.includes(sw.prTitleFormat)) {
         warnings.push(`notion.sprintWorkflow.prTitleFormat "${sw.prTitleFormat}" is not valid. Use: ${validFormats.join(', ')}`);
       }
+    }
+    const tw = config.notion.taskWorkflow;
+    if (tw !== undefined && tw !== null && (typeof tw !== 'object' || Array.isArray(tw))) {
+      warnings.push(`notion.taskWorkflow should be an object like { "enabled": true }, got ${JSON.stringify(tw)}`);
+    } else if (tw && typeof tw.enabled !== 'undefined' && typeof tw.enabled !== 'boolean') {
+      warnings.push(`notion.taskWorkflow.enabled should be boolean, got ${typeof tw.enabled}`);
     }
     const dbs = config.notion.databases;
     if (dbs) {
